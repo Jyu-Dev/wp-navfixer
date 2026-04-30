@@ -52,7 +52,7 @@
       const [apiKey, setApiKey] = useState('');
       const [rememberMe, setRememberMe] = useState(false);
       const [htmlInput, setHtmlInput] = useState(`<nav id="site-navigation" class="main-navigation">\n  <div class="nav-wrapper">\n    <a href="/" class="site-logo">MyWP Site</a>\n    <ul id="primary-menu" class="menu">\n      <li class="menu-item"><a href="/home">Home</a></li>\n      <li class="menu-item"><a href="/about">About Us</a></li>\n      <li class="menu-item"><a href="/services">Our Services</a></li>\n      <li class="menu-item"><a href="/portfolio">Portfolio</a></li>\n      <li class="menu-item"><a href="/blog">Blog</a></li>\n      <li class="menu-item"><a href="/contact">Contact</a></li>\n    </ul>\n  </div>\n</nav>`);
-      const [detectedBreakpoint, setDetectedBreakpoint] = useState(null);
+      const [affectedBreakpoints, setAffectedBreakpoints] = useState(null);
       const [analysisExplanation, setAnalysisExplanation] = useState('');
       const [generatedCss, setGeneratedCss] = useState('');
       const [isLoading, setIsLoading] = useState(false);
@@ -117,40 +117,45 @@
         setError('');
         setGeneratedCss('');
         setCopied(false);
-        setDetectedBreakpoint(null);
+        setAffectedBreakpoints(null);
         setAnalysisExplanation('');
 
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
           
-          const systemPrompt = `You are an expert frontend developer and WordPress CSS specialist. Your task is to analyze full website HTML, locate the navigation bar, estimate the screen width where it will overlap or break, and write responsive CSS to fix it.
+          const systemPrompt = `You are an expert frontend developer and WordPress CSS specialist. Your task is to analyze full website HTML, locate the navigation bar, and write a comprehensive responsive CSS solution to fix horizontal overlapping across different screen views.
           CRITICAL INSTRUCTION: The output CSS MUST be beautifully formatted, properly indented (using tabs or spaces), and use line breaks for optimal human readability. Do NOT minify the CSS.`;
 
-          const userPrompt = `I have a WordPress site whose navigation bar overlaps or breaks on smaller screens. 
+          const userPrompt = `I have a WordPress site whose navigation bar text and logo overlap horizontally on various smaller screens. 
           
           Here is the HTML structure of the page/site:
           ${htmlInput}
           
           Please analyze this HTML.
-          1. Find the primary navigation menu.
-          2. Estimate the breakpoint (in pixels) where the menu items would likely start overlapping based on the number of items and text length.
+          1. Find the primary navigation menu and logo.
+          2. Determine the responsive breakpoints where the menu items would likely start overlapping horizontally.
           3. Provide a brief explanation of the issue and the solution.
-          4. Write a CSS media query (@media (max-width: [breakpoint]px)) that targets the specific classes and IDs found in the HTML to fix the overlapping.
+          4. Write a comprehensive CSS patch using multiple media queries to fix the overlapping across different screen views.
           
           Fix requirements:
           - DO NOT change the layout to a vertical stack or mobile menu. Keep the original horizontal layout.
-          - Adjust ONLY the font sizes of the menu text/links and the size of the logo to make the navigation fit together seamlessly.
-          - Ensure there is no text overlapping and the menu does not break into 2 lines on smaller screens.
+          - Fix the horizontal overlap by progressively reducing the menu text size, reducing the logo width/height, and adjusting paddings/margins at different screen widths.
+          - Make the CSS as simple and effective as possible.
+          - Target multiple screen views using min-width and max-width media queries where necessary.
           - Add high specificity if necessary (using !important if it helps override default themes).
-          - Formatting: Structure the CSS neatly with proper line breaks and indentation. For example:
-            @media screen and (max-width: 600px) {
-                .menu-item a {
-                    font-size: 13px !important;
-                }
-                .site-logo img {
-                    max-width: 120px !important;
-                }
-            }`;
+          
+          Example CSS Structure to emulate:
+          #top-menu li.submenu-right > ul { right: 0; }
+          @media only screen and (min-width: 981px) and (max-width: 1600px) {
+            #top-menu > .menu-item-has-children > a:first-child { padding-right: 16px !important; }
+          }
+          @media only screen and (min-width: 981px) and (max-width: 1536px) {
+            #main-header .logo_container { padding-left: 15px !important; }
+          }
+          @media only screen and (min-width: 981px) and (max-width: 1111px) {
+            #main-header #logo { max-height: 60% !important; top: -45px; }
+            #top-menu-nav ul#top-menu li a { font-size: 13px !important; }
+          }`;
 
           const payload = {
             contents: [{ parts: [{ text: userPrompt }] }],
@@ -160,11 +165,11 @@
               responseSchema: {
                 type: "OBJECT",
                 properties: {
-                  estimatedBreakpoint: { type: "INTEGER", description: "The estimated pixel width where the menu breaks." },
-                  analysisExplanation: { type: "STRING", description: "A short, 1-2 sentence explanation of the detected issue and how the CSS fixes it." },
-                  cssCode: { type: "STRING", description: "The raw, nicely formatted and properly indented CSS media query to fix the overlapping. DO NOT use markdown blocks." }
+                  affectedBreakpoints: { type: "STRING", description: "A string describing the breakpoints addressed, e.g., '981px - 1600px' or 'Multiple Screens'" },
+                  analysisExplanation: { type: "STRING", description: "A short, 1-2 sentence explanation of the detected issue and how the multi-breakpoint CSS fixes it." },
+                  cssCode: { type: "STRING", description: "The raw, nicely formatted CSS containing the multiple media queries to fix the overlapping. DO NOT use markdown blocks." }
                 },
-                required: ["estimatedBreakpoint", "analysisExplanation", "cssCode"]
+                required: ["affectedBreakpoints", "analysisExplanation", "cssCode"]
               }
             }
           };
@@ -180,7 +185,7 @@
           if (result.candidates && result.candidates[0] && result.candidates[0].content) {
             const responseData = JSON.parse(result.candidates[0].content.parts[0].text);
             setGeneratedCss(responseData.cssCode);
-            setDetectedBreakpoint(responseData.estimatedBreakpoint);
+            setAffectedBreakpoints(responseData.affectedBreakpoints);
             setAnalysisExplanation(responseData.analysisExplanation);
           } else {
             throw new Error("Invalid response format from analysis engine. Check your API key.");
@@ -361,12 +366,12 @@
                         <div className="p-4 sm:p-5">
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="bg-brand-white rounded-lg p-3 sm:p-4 border border-brand-gray text-center sm:text-left shadow-sm">
-                              <p className="text-xs text-brand-black/50 uppercase font-bold tracking-wider mb-1">Detected Breakpoint</p>
-                              <p className="text-xl sm:text-2xl font-black text-brand-orange">~{detectedBreakpoint}px</p>
+                              <p className="text-xs text-brand-black/50 uppercase font-bold tracking-wider mb-1">Target Breakpoints</p>
+                              <p className="text-lg sm:text-xl font-black text-brand-orange">{affectedBreakpoints}</p>
                             </div>
                             <div className="bg-brand-white rounded-lg p-3 sm:p-4 border border-brand-gray text-center sm:text-left shadow-sm">
                               <p className="text-xs text-brand-black/50 uppercase font-bold tracking-wider mb-1">Target CMS</p>
-                              <p className="text-xl sm:text-2xl font-black text-brand-navy">WordPress</p>
+                              <p className="text-lg sm:text-xl font-black text-brand-navy">WordPress</p>
                             </div>
                           </div>
                           <div className="bg-[#f9f9f9] p-4 rounded-lg border border-brand-gray text-sm text-brand-black/80 leading-relaxed font-medium">
