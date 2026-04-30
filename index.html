@@ -138,13 +138,17 @@
           4. Write a CSS media query (@media (max-width: [breakpoint]px)) that targets the specific classes and IDs found in the HTML to fix the overlapping.
           
           Fix requirements:
-          - Force horizontal menu items (like <ul> or flex containers) to stack vertically (e.g., flex-direction: column) or convert to a mobile menu layout.
-          - Ensure links don't overflow the screen width.
-          - Add high specificity if necessary.
+          - DO NOT change the layout to a vertical stack or mobile menu. Keep the original horizontal layout.
+          - Adjust ONLY the font sizes of the menu text/links and the size of the logo to make the navigation fit together seamlessly.
+          - Ensure there is no text overlapping and the menu does not break into 2 lines on smaller screens.
+          - Add high specificity if necessary (using !important if it helps override default themes).
           - Formatting: Structure the CSS neatly with proper line breaks and indentation. For example:
             @media screen and (max-width: 600px) {
-                .menu-class {
-                    flex-direction: column;
+                .menu-item a {
+                    font-size: 13px !important;
+                }
+                .site-logo img {
+                    max-width: 120px !important;
                 }
             }`;
 
